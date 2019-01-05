@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 )
 
 var users = map[string]string{
@@ -42,7 +42,12 @@ func Signin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create a new random session token
-	sessionToken := uuid.NewV4().String()
+	sessionTokenInt, err := uuid.NewV4()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	sessionToken := sessionTokenInt.String()
 	// Set the token in the cache, along with the user whom it represents
 	// The token has an expiry time of 120 seconds
 	_, err = cache.Do("SETEX", sessionToken, "120", creds.Username)
@@ -116,8 +121,13 @@ func Refresh(w http.ResponseWriter, r *http.Request) {
 	// The code uptil this point is the same as the first part of the `Welcome` route
 
 	// Now, create a new session token for the current user
-	newSessionToken := uuid.NewV4().String()
-	_, err = cache.Do("SETEX", newSessionToken, "120", fmt.Sprintf("%s",response))
+	newSessionTokenInt, err := uuid.NewV4()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	newSessionToken := newSessionTokenInt.String()
+	_, err = cache.Do("SETEX", newSessionToken, "120", fmt.Sprintf("%s", response))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -129,7 +139,7 @@ func Refresh(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	
+
 	// Set the new token as the users `session_token` cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:    "session_token",
